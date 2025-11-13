@@ -2,11 +2,12 @@ import { Separator } from "./ui/separator";
 
 type ThoughtMessageProps = {
   thought: string;
+  inThinking: boolean
 }
 
 export const ThoughtMessage = (props: ThoughtMessageProps) => {
   return (
-    <div>
+    <div className={`${props.inThinking ? "" : "hidden"}`}>
       <span className="italic text-sm px-2 py-1 bg-secondary rounded-lg">
         AI thought:
       </span>
