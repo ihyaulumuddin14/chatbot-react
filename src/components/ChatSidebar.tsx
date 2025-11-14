@@ -1,5 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { Moon, Plus, Sun } from "lucide-react";
+import { Moon, MoreHorizontalIcon, Plus, Sun } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "~/components/ui/button";
@@ -15,17 +15,22 @@ import {
   SidebarMenuItem,
   Sidebar as SidebarPrimitive,
 } from "~/components/ui/sidebar";
-import { db } from "~/lib/dexie";
 import { useTheme } from "./ThemeProvider";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { db } from "~/lib/dexie";
+import { toast } from "sonner";
 
 export const ChatSidebar = () => {
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const { setTheme, theme } = useTheme();
   const [dialogIsOpen, setDialogIsOpen] = useState(false);
   const [threadTitle, setThreadTitle] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [renameId, setRenameId] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+  const { setTheme, theme } = useTheme();
   const navigate = useNavigate();
 
   const threads = useLiveQuery(() => {
@@ -41,6 +46,24 @@ export const ChatSidebar = () => {
       setTheme("dark");
     }
   };
+
+  const startRename = (threadId: string, threadTitle: string) => {
+    setRenameId(threadId);
+    setRenameValue(threadTitle)
+  }
+
+  const finishRename = async (threadId: string, threadTitle: string) => {
+    if (!renameId || !renameValue) return
+
+    try {
+      await db.updateThread(threadId, threadTitle)
+      toast.success("Update thread successfully!")
+      setRenameId("")
+      setRenameValue("")
+    } catch (error) {
+      toast.error(error as string);
+    }
+  }
 
   const handleCreateThread = async () => {
     if (!threadTitle) return
@@ -77,11 +100,49 @@ export const ChatSidebar = () => {
                 {threads?.map((chat) => (
                   <SidebarMenuItem key={chat.id}>
                     <Link to={`/thread/${chat.id}`}>
-                      <SidebarMenuButton
-                        isActive={activeChat === chat.id}
-                        >
-                          {chat.title}
-                      </SidebarMenuButton>
+                      <DropdownMenu modal={false}>
+                        <SidebarMenuButton
+                          onDoubleClick={() => startRename(chat.id, chat.title)}
+                          className="w-full justify-between"
+                          isActive={activeChat === chat.id}
+                          >
+                            {renameId === chat.id ? (
+                              <input
+                                className="border rounded px-2 py-1 w-full text-sm bg-background"
+                                autoFocus
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onBlur={() => setRenameId("")}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") finishRename(renameId, renameValue);
+                                  if (e.key === "Escape") setRenameId("");
+                                }}
+                              />
+                            ) : (
+                              <span>{chat.title}</span>
+                            )}
+
+                          <DropdownMenuTrigger className="w-fit">
+                            <Button variant="outline" aria-label="Open menu" size="sm">
+                              <MoreHorizontalIcon />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </SidebarMenuButton>
+                        <DropdownMenuContent>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                                onSelect={() => {startRename(chat.id, chat.title)}}
+                              >
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onSelect={() => {setShowDeleteDialog(true)}}
+                              >
+                              <span className='text-destructive brightness-200 font-semibold'>Delete</span>                              
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </Link>
                   </SidebarMenuItem>
                 ))}
@@ -122,6 +183,27 @@ export const ChatSidebar = () => {
             <Button
               onClick={handleCreateThread}>
                 Create Thread
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete This Chat?</DialogTitle>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant={"secondary"}
+              onClick={() => setDialogIsOpen(false)}>
+                Cancel
+            </Button>
+            <Button
+              variant={"destructive"}
+              onClick={() => {}}>
+                Delete Thread
             </Button>
           </DialogFooter>
         </DialogContent>

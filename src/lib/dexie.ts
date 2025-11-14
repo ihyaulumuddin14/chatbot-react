@@ -51,32 +51,43 @@ class ChatDB extends Dexie {
 
     return id;
   }
-
-  async getAllThreads() {
-    return this.threads.reverse().sortBy("updated_at")
-  }
-
-
+  
   async createMessage(
     message: Pick<DEX_Message, "content" | "role" | "thread_id" | "thought">
   ) {
     const messageId = crypto.randomUUID()
-
+    
     await this.transaction("rw", [this.threads, this.messages], async () => {
       await this.messages.add({
         ...message,
         id: messageId,
         created_at: new Date()
       })
-
+      
       await this.threads.update(message.thread_id, {
         updated_at: new Date()
       })
     })
-
+    
     return messageId;
   }
 
+  async updateThread(threadId: string, threadTitle: string) {
+    try {
+      const res = await this.threads.update(threadId, {
+        title: threadTitle
+      })
+
+      return res;
+    } catch (error) {
+      throw new Error("Failed to update")
+    }
+  }
+
+  async getAllThreads() {
+    return this.threads.reverse().sortBy("updated_at")
+  }
+  
   async getMessagesForThread(threadId: string) {
     return this.messages
       .where("thread_id")
